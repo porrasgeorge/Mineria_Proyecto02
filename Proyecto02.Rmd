@@ -5,10 +5,6 @@ date: "19/4/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Carga de librerias
 
 ```{r setup, include=FALSE}
@@ -103,6 +99,25 @@ dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
 dataLog$TimestampCR <- with_tz(dataLog$TimestampUTC, tzone = "America/Costa_Rica") 
 dataLog$TimestampUTC <- NULL
 dataLog$ID <- NULL
+dataLog$year <- year(dataLog$TimestampCR)
+dataLog$month <- month(dataLog$TimestampCR)
+dataLog$hour <- hour(dataLog$TimestampCR)
+
+```
+
+
+## Union de tablas, borrado de columnas no importantes y Categorizacion de valores
+
+```{r}
+dataLog <- dataLog %>% left_join(quantity, by = c('QuantityID' = "ID")) %>%
+  left_join(sources, by = c('SourceID' = "ID"))
+
+names(dataLog)[names(dataLog) == "Name.x"] <- "Quantity"
+names(dataLog)[names(dataLog) == "Name.y"] <- "Meter"
+
+dataLog$SourceID <- NULL
+dataLog$QuantityID <- NULL
+dataLog$DisplayName <- NULL
 ```
 
 
