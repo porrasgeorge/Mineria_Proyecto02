@@ -99,7 +99,6 @@ dataLog$hour <- hour(dataLog$TimestampCR)
 
 ```
 
-
 ## Union de tablas, borrado de columnas no importantes y Categorizacion de valores
 ```{r}
 dataLog <- dataLog %>% left_join(quantity, by = c('QuantityID' = "ID")) %>%
@@ -111,8 +110,28 @@ names(dataLog)[names(dataLog) == "Name.y"] <- "Meter"
 dataLog$SourceID <- NULL
 dataLog$QuantityID <- NULL
 dataLog$DisplayName <- NULL
+rm(quantity, sources)
 ```
 
+##Clasificacion de datos
+```{r}
+dataLog <- dataLog %>% mutate(classif = case_when(Value < tensiones["limit087"] ~ "TN087",
+                                                  Value < tensiones["limit091"] ~ "TN087_091",
+                                                  Value < tensiones["limit093"] ~ "TN091_093",
+                                                  Value < tensiones["limit095"] ~ "TN093_095",
+                                                  Value < tensiones["limit105"] ~ "TN095_105",
+                                                  Value < tensiones["limit107"] ~ "TN105_107",
+                                                  Value < tensiones["limit109"] ~ "TN107_109",
+                                                  Value < tensiones["limit113"] ~ "TN109_113",
+                                                  TRUE ~ "TN113"
+                                                  ))
+  
+
+dataLog$classif <- factor(dataLog$classif, levels = list("TN087", "TN087_091", "TN091_093", "TN093_095", "TN095_105", "TN105_107", "TN107_109", "TN109_113", "TN113"))
+dataLog_table <- as.data.frame(table(dataLog$classif, dataLog$Quantity, dnn = c("Classif", "Quantity")))
+sum_total <- sum(dataLog_table$Freq)/3
+dataLog_table$Perc <- round(100*(dataLog_table$Freq/sum_total), 2)
+```
 
 
 
