@@ -50,7 +50,7 @@ tensiones <- c("Nom" = tn,
 ## Conexion a SQL Server y carga de tablas (RODBC)
 
 ```{r}
-channel <- odbcConnect("SQL_ION", uid="sa", pwd="Con3$adm.")
+channel <- odbcConnect("SQL_ION", uid="sa", pwd="xxxxxx")
 sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
 sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
 sources <- sources %>% filter(ID %in% c(57))
@@ -87,7 +87,8 @@ quantity <- read_feather("featherFiles/quantity.feather")
 sources <- read_feather("featherFiles/sources.feather")
 ```
 
-## Análisis de datos 
+## Análisis de datos
+## histogramas y boxplots
 
 ```{r}
 
