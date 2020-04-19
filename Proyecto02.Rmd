@@ -1,6 +1,6 @@
 ---
 title: "Proyecto 02"
-author: "Jorge Porras"
+author: "Jorge Porras & Alex Cruz"
 date: "19/4/2020"
 output: html_document
 ---
