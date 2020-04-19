@@ -78,9 +78,9 @@ write_feather(sources, "featherFiles/sources.feather")
 ##Leer Archivos de las tablas
 ```{r}
 rm(dataLog, quantity, sources)
-dataLog <- read_feather("featherFiles/dataLog.feather")
-quantity <- read_feather("featherFiles/quantity.feather")
-sources <- read_feather("featherFiles/sources.feather")
+dataLog <- read_feather("./featherFiles/dataLog.feather")
+quantity <- read_feather("./featherFiles/quantity.feather")
+sources <- read_feather("./featherFiles/sources.feather")
 ```
 
 ## Análisis de datos
