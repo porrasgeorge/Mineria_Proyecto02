@@ -1,0 +1,36 @@
+---
+title: "Proyecto 02"
+author: "Jorge Porras"
+date: "19/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Carga de librerias
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(RODBC)
+library(lubridate)
+library(feather)
+library(ggplot2)
+library(tidyr)
+#library(xlsx)
+```
+
+## fecha-hora a UTC
+
+```{r}
+
+end_dateCR <- floor_date(now(), "week")
+start_dateCR <- end_dateCR - weeks(5)+ days(1)
+
+initial_date <- with_tz(start_dateCR, tzone = "UTC") 
+final_date <- with_tz(end_dateCR, tzone = "UTC") 
+
+```
+
