@@ -22,15 +22,89 @@ library(tidyr)
 #library(xlsx)
 ```
 
-## fecha-hora a UTC
+## fecha-hora a UTC (lubridate)
 
 ```{r}
-
 end_dateCR <- floor_date(now(), "week")
-start_dateCR <- end_dateCR - weeks(5)+ days(1)
+start_dateCR <- end_dateCR - weeks(8)+ days(1)
 
 initial_date <- with_tz(start_dateCR, tzone = "UTC") 
 final_date <- with_tz(end_dateCR, tzone = "UTC") 
 
 ```
+## Valores Nominales (vectores)
+
+```{r}
+tn <- 24900
+tensiones <- c("Nom" = tn, 
+               "limit087" = 0.87*tn,
+               "limit091" = 0.91*tn,
+               "limit093" = 0.93*tn,
+               "limit095" = 0.95*tn,
+               "limit105" = 1.05*tn,
+               "limit107" = 1.07*tn,
+               "limit109" = 1.09*tn,
+               "limit113" = 1.13*tn)
+
+```
+## Conexion a SQL Server y carga de tablas (RODBC)
+
+```{r}
+channel <- odbcConnect("SQL_ION", uid="sa", pwd="Con3$adm.")
+sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
+sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
+sources <- sources %>% filter(ID %in% c(57))
+
+quantity <- sqlQuery(channel , "select top 1500000 ID, Name from Quantity where Name like 'Voltage%'")
+quantity <- quantity %>% filter(grepl("^Voltage Phases [ABC][ABC] Mean$", Name))
+quantity$Name <- c('Vab', 'Vbc', 'Vca')
+
+sources_ids <- paste0(sources$ID, collapse = ",")
+quantity_ids <- paste0(quantity$ID, collapse = ",")
+dataLog <- sqlQuery(channel , paste0("select top 500000 * from dataLog2 where ",
+                                      "SourceID in (", sources_ids, ")",
+                                      " and QuantityID in (", quantity_ids, ")",
+                                      " and TimestampUTC >= '", initial_date, "'",
+                                      " and TimestampUTC < '", final_date, "'"))
+
+odbcCloseAll()
+
+```
+
+
+## Guardar archivos con las tablas
+```{r}
+write_feather(dataLog, "featherFiles/dataLog.feather")
+write_feather(quantity, "featherFiles/quantity.feather")
+write_feather(sources, "featherFiles/sources.feather")
+```
+
+##Leer Archivos de las tablas
+```{r}
+rm(dataLog, quantity, sources)
+dataLog <- read_feather("featherFiles/dataLog.feather")
+quantity <- read_feather("featherFiles/quantity.feather")
+sources <- read_feather("featherFiles/sources.feather")
+```
+
+## Análisis de datos 
+
+```{r}
+
+```
+
+
+## Transformacion de datos
+
+```{r}
+## Transformacion de columnas
+dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
+dataLog$TimestampCR <- with_tz(dataLog$TimestampUTC, tzone = "America/Costa_Rica") 
+dataLog$TimestampUTC <- NULL
+dataLog$ID <- NULL
+```
+
+
+
+
 
