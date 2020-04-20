@@ -26,7 +26,7 @@ library(randomForest)
 
 ```{r}
 end_dateCR <- floor_date(now(), "week")  ## primer domingo hacia atras
-start_dateCR <- end_dateCR - weeks(8)+ days(1) ## 8 semanas atras (lunes)
+start_dateCR <- end_dateCR - years(3)+ days(1) ## 8 semanas atras (lunes)
 ```
 
 #### Fecha-hora a UTC (lubridate) (DB está en UTC)
@@ -39,8 +39,8 @@ final_date <- with_tz(end_dateCR, tzone = "UTC")
 #### Valores Nominales (vectores)
 
 ```{r}
-nom_voltage <- 24900
-cut_voltage <- 25100
+nom_voltage <- 35000
+cut_voltage <- 34000
 tensiones <- c("Nom" = nom_voltage, 
                "limit087" = 0.87*nom_voltage,
                "limit091" = 0.91*nom_voltage,
@@ -56,10 +56,12 @@ tensiones <- c("Nom" = nom_voltage,
 #### Conexion a SQL Server y carga de tablas (RODBC)
 
 ```{r eval = FALSE}
-channel <- odbcConnect("SQL_ION", uid="sa", pwd="xxxxxx")
-sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
-sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
-sources <- sources %>% filter(ID %in% c(57))
+channel <- odbcConnect("SQL_ION", uid="sa", pwd="Con3$adm.")
+#sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
+sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopealfaroruiz.%'")
+#sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
+sources$Name <- gsub("Coopealfaroruiz.", '', sources$Name)
+sources <- sources %>% filter(ID %in% c(9))
 
 quantity <- sqlQuery(channel , "select top 1500000 ID, Name from Quantity where Name like 'Voltage%'")
 quantity <- quantity %>% filter(grepl("^Voltage Phases [ABC][ABC] Mean$", Name))
@@ -182,7 +184,7 @@ hist(dataLog$Value, col="Orange", border = "brown", xlab = "Valor", ylab = "Frec
 #### Variable temporal solo para análisis (originalmente se tenian 15825 rows)
 
 ```{r}
-dl_temp <- dataLog %>% filter(Value > 25100)
+dl_temp <- dataLog %>% filter(Value > cut_voltage)
 ### Cantidad de filas
 final_rows <- nrow(dl_temp)
 print(paste0 ("Se eliminaron el ", round(100*((initial_rows - final_rows)/initial_rows), 2), "% de las filas" ))
@@ -262,33 +264,21 @@ dataLog2 <- dataLog2 %>% mutate (unbalance = unbal_calc(Vab, Vbc, Vca))
 ```
 
 
-
+#### Desbalance promedio 
 
 ```{r}
 a <- dataLog2 %>% group_by(hour2) %>% summarise(v = mean(unbalance))
 ggplot(a, aes(hour2, v)) + geom_point() + geom_line(col = "orange")
 
-a <- dataLog2 %>% group_by(wdayName, hour2) %>% summarise(v = mean(unbalance))
-ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(wdayName)))
-
 ```
 
+#### Desbalance a travez de los años
 
+```{r}
+a <- dataLog2 %>% group_by(year, hour2) %>% summarise(v = mean(unbalance))
+ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(year)), size=2)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
 
 
 
@@ -319,7 +309,7 @@ dataLog_table$Perc <- round(100*(dataLog_table$Freq/sum_total), 2)
 
 ## Particionamiento de los datos
 
-```{r}
+```{r eval = FALSE}
 set.seed(4)
 mascara <- sample.split(dataLog$Quantity, SplitRatio = 7/10)
 training_data <- dataLog[mascara,]
@@ -327,7 +317,7 @@ test_data <- dataLog[!mascara,]
 
 ```
 
-```{r}
+```{r eval = FALSE}
 modelo <- randomForest(formula = Value ~ year + month + hour, data = training_data)
 
 ```
