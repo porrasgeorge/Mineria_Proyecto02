@@ -5,6 +5,8 @@ date: "19/4/2020"
 output: html_document
 ---
 
+## ¿es posible predecir desbalances de tension?
+
 ## Carga de librerias
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,6 +16,8 @@ library(lubridate)
 library(feather)
 library(ggplot2)
 library(tidyr)
+library(caTools)
+library(randomForest)
 #library(xlsx)
 ```
 
@@ -67,26 +71,20 @@ odbcCloseAll()
 
 ## Guardar archivos con las tablas
 ```{r}
-write_feather(dataLog, "featherFiles/dataLog.feather")
-write_feather(quantity, "featherFiles/quantity.feather")
-write_feather(sources, "featherFiles/sources.feather")
+#write_feather(dataLog, "featherFiles/dataLog.feather")
+#write_feather(quantity, "featherFiles/quantity.feather")
+#write_feather(sources, "featherFiles/sources.feather")
 ```
 
 ##Leer Archivos de las tablas
 ```{r}
-rm(dataLog, quantity, sources)
-dataLog <- read_feather("./featherFiles/dataLog.feather")
-quantity <- read_feather("./featherFiles/quantity.feather")
-sources <- read_feather("./featherFiles/sources.feather")
+#rm(dataLog, quantity, sources)
+dataLog <- read_feather("featherFiles/dataLog.feather")
+quantity <- read_feather("featherFiles/quantity.feather")
+sources <- read_feather("featherFiles/sources.feather")
 ```
 
-## Análisis de datos
-## histogramas y boxplots
-```{r}
-
-```
-
-## Transformacion de datos
+## Transformacion de datos para analisis previo
 ```{r}
 ## Transformacion de columnas
 dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
@@ -110,8 +108,74 @@ names(dataLog)[names(dataLog) == "Name.y"] <- "Meter"
 dataLog$SourceID <- NULL
 dataLog$QuantityID <- NULL
 dataLog$DisplayName <- NULL
-rm(quantity, sources)
+#rm(quantity, sources)
 ```
+
+
+## Análisis de datos
+## histogramas y boxplots
+
+### Cantidad de filas
+```{r}
+nrow(dataLog)
+```
+
+
+### Boxplot del comnportamiento de la tension, horizontal para aprovechar el espacio y se pueda apreciar mejor
+```{r}
+boxplot(dataLog$Value, xlab= "Voltaje", col="Orange", border = "brown", horizontal = T, main = "Voltaje Promedio") 
+```
+### Histograma 
+
+```{r}
+hist(dataLog$Value, col="Orange", border = "brown", xlab = "Valor", ylab = "Frecuencia", main = "Histograma de Tension")
+
+```
+
+
+#### Variable temporal solo para análisis
+
+```{r}
+dl_temp <- dataLog %>% filter(Value > 25100)
+### Cantidad de filas
+nrow(dl_temp)
+```
+
+```{r}
+boxplot(dl_temp$Value, xlab= "Voltaje", col="Orange", border = "brown", horizontal = T, main = "Voltaje Promedio") 
+```
+
+### Histograma eliminando outliers de la tabla temporal
+```{r}
+hist(dl_temp$Value, col="Orange", border = "brown", xlab = "Tension", ylab = "Frecuencia", breaks = 60, main = "Histograma de Tension")
+```
+
+### Grafico de densidad
+```{r}
+d <- density(dl_temp$Value)
+plot(d, main = "Densidad")
+polygon(d, col = "Orange", border = "brown")
+```
+
+
+```{r}
+
+bp <- ggplot(dl_temp, aes(Quantity, Value))
+bp <- bp + geom_boxplot(aes(colour = Quantity))
+bp <- bp + scale_color_brewer(palette="Dark2")
+bp
+
+```
+
+
+
+```{r}
+p <- ggplot(dl_temp, aes(x=Value, fill = Quantity)) + 
+  geom_density(alpha = 0.6)
+p
+```
+
+
 
 ##Clasificacion de datos
 ```{r}
@@ -131,6 +195,23 @@ dataLog$classif <- factor(dataLog$classif, levels = list("TN087", "TN087_091", "
 dataLog_table <- as.data.frame(table(dataLog$classif, dataLog$Quantity, dnn = c("Classif", "Quantity")))
 sum_total <- sum(dataLog_table$Freq)/3
 dataLog_table$Perc <- round(100*(dataLog_table$Freq/sum_total), 2)
+```
+
+
+
+## Particionamiento de los datos
+
+```{r}
+set.seed(4)
+mascara <- sample.split(dataLog$Quantity, SplitRatio = 7/10)
+training_data <- dataLog[mascara,]
+test_data <- dataLog[!mascara,]
+
+```
+
+```{r}
+modelo <- randomForest(formula = Value ~ year + month + hour, data = training_data)
+
 ```
 
 
