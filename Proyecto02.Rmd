@@ -1,14 +1,15 @@
 ---
 title: "Proyecto 02"
 author: "Jorge Porras & Alex Cruz"
-date: "19/4/2020"
+date: "12/4/2020"
 output: html_document
 ---
 
-## ¿es posible predecir desbalances de tension?
+# ¿Es posible predecir desbalances de tension?
 
-## Carga de librerias
-```{r setup, include=FALSE}
+#### Carga de librerias
+
+```{r}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(RODBC)
@@ -21,17 +22,22 @@ library(randomForest)
 #library(xlsx)
 ```
 
-## fecha-hora a UTC (lubridate)
+#### Rango de fechas (lubridate)
+
 ```{r}
-end_dateCR <- floor_date(now(), "week")
-start_dateCR <- end_dateCR - weeks(8)+ days(1)
-
-initial_date <- with_tz(start_dateCR, tzone = "UTC") 
-final_date <- with_tz(end_dateCR, tzone = "UTC") 
-
+end_dateCR <- floor_date(now(), "week")  ## primer domingo hacia atras
+start_dateCR <- end_dateCR - weeks(8)+ days(1) ## 8 semanas atras (lunes)
 ```
 
-## Valores Nominales (vectores)
+#### Fecha-hora a UTC (lubridate) (DB está en UTC)
+
+```{r}
+initial_date <- with_tz(start_dateCR, tzone = "UTC") 
+final_date <- with_tz(end_dateCR, tzone = "UTC") 
+```
+
+#### Valores Nominales (vectores)
+
 ```{r}
 tn <- 24900
 tensiones <- c("Nom" = tn, 
@@ -46,8 +52,9 @@ tensiones <- c("Nom" = tn,
 
 ```
 
-## Conexion a SQL Server y carga de tablas (RODBC)
-```{r}
+#### Conexion a SQL Server y carga de tablas (RODBC)
+
+```{r eval = FALSE}
 channel <- odbcConnect("SQL_ION", uid="sa", pwd="xxxxxx")
 sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
 sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
@@ -69,14 +76,15 @@ odbcCloseAll()
 
 ```
 
-## Guardar archivos con las tablas
-```{r}
-#write_feather(dataLog, "featherFiles/dataLog.feather")
-#write_feather(quantity, "featherFiles/quantity.feather")
-#write_feather(sources, "featherFiles/sources.feather")
+#### Guardar archivos con las tablas
+
+```{r eval = FALSE}
+write_feather(dataLog, "featherFiles/dataLog.feather")
+write_feather(quantity, "featherFiles/quantity.feather")
+write_feather(sources, "featherFiles/sources.feather")
 ```
 
-##Leer Archivos de las tablas
+#### Leer Archivos de las tablas
 ```{r}
 #rm(dataLog, quantity, sources)
 dataLog <- read_feather("featherFiles/dataLog.feather")
@@ -84,7 +92,30 @@ quantity <- read_feather("featherFiles/quantity.feather")
 sources <- read_feather("featherFiles/sources.feather")
 ```
 
-## Transformacion de datos para analisis previo
+
+### Contenido de las tablas
+
+#### Datalog
+
+```{r}
+glimpse(dataLog)
+```
+
+#### Quantity
+
+```{r}
+glimpse(quantity)
+```
+
+#### Sources
+
+```{r}
+glimpse(sources)
+```
+
+
+
+#### Transformacion de datos para analisis previo
 ```{r}
 ## Transformacion de columnas
 dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
@@ -97,7 +128,8 @@ dataLog$hour <- hour(dataLog$TimestampCR)
 
 ```
 
-## Union de tablas, borrado de columnas no importantes y Categorizacion de valores
+
+#### Union de tablas, borrado de columnas no importantes y Categorizacion de valores
 ```{r}
 dataLog <- dataLog %>% left_join(quantity, by = c('QuantityID' = "ID")) %>%
   left_join(sources, by = c('SourceID' = "ID"))
@@ -110,22 +142,31 @@ dataLog$QuantityID <- NULL
 dataLog$DisplayName <- NULL
 #rm(quantity, sources)
 ```
+#### Contenido de la tabla Datalog
 
+```{r}
+glimpse(dataLog)
+```
 
 ## Análisis de datos
-## histogramas y boxplots
+### Histogramas y boxplots
 
-### Cantidad de filas
+#### Cantidad de filas inicial
+
 ```{r}
-nrow(dataLog)
+initial_rows <- nrow(dataLog)
+initial_rows
 ```
 
 
-### Boxplot del comnportamiento de la tension, horizontal para aprovechar el espacio y se pueda apreciar mejor
+#### Boxplot del comportamiento de la tension (horizontal)
+
 ```{r}
 boxplot(dataLog$Value, xlab= "Voltaje", col="Orange", border = "brown", horizontal = T, main = "Voltaje Promedio") 
 ```
-### Histograma 
+
+
+#### Histograma inicial
 
 ```{r}
 hist(dataLog$Value, col="Orange", border = "brown", xlab = "Valor", ylab = "Frecuencia", main = "Histograma de Tension")
@@ -133,30 +174,35 @@ hist(dataLog$Value, col="Orange", border = "brown", xlab = "Valor", ylab = "Frec
 ```
 
 
-#### Variable temporal solo para análisis
+#### Variable temporal solo para análisis (originalmente se tenian 15825 rows)
 
 ```{r}
 dl_temp <- dataLog %>% filter(Value > 25100)
 ### Cantidad de filas
-nrow(dl_temp)
+final_rows <- nrow(dl_temp)
+print(paste0 ("Se eliminaron el ", round(100*((initial_rows - final_rows)/initial_rows), 2), "% de las filas" ))
 ```
+
+#### Boxplot con un filtro temporal de los datos (para análisis unicamente)
 
 ```{r}
 boxplot(dl_temp$Value, xlab= "Voltaje", col="Orange", border = "brown", horizontal = T, main = "Voltaje Promedio") 
 ```
 
-### Histograma eliminando outliers de la tabla temporal
+#### Histograma eliminando outliers de la tabla temporal
+
 ```{r}
 hist(dl_temp$Value, col="Orange", border = "brown", xlab = "Tension", ylab = "Frecuencia", breaks = 60, main = "Histograma de Tension")
 ```
 
-### Grafico de densidad
+#### Grafico de densidad
 ```{r}
 d <- density(dl_temp$Value)
 plot(d, main = "Densidad")
 polygon(d, col = "Orange", border = "brown")
 ```
 
+#### Boxplot separado por variable
 
 ```{r}
 
@@ -168,17 +214,40 @@ bp
 ```
 
 
+#### Grafico de densidad para cada variable
 
 ```{r}
+lineas <- dl_temp %>% group_by(Quantity) %>% summarise(v = mean(Value))
+
 p <- ggplot(dl_temp, aes(x=Value, fill = Quantity)) + 
-  geom_density(alpha = 0.6)
+  geom_density(alpha = 0.6) +
+  geom_vline(data=lineas, aes(xintercept=v, color=Quantity), size = 2)
 p
 ```
 
 
+### Aqui inician la modificaciones reales de los datos
+
+#### Pivot para generar columnas para las 3 variables de tension
+
+```{r}
+dataLog2 <- tidyr::spread(dataLog, Quantity, Value)
+```
+
+#### Muesta de la tabla
+
+```{r}
+head(dataLog2, 15)
+```
+
+
+
+
+
+
 
 ##Clasificacion de datos
-```{r}
+```{r eval = FALSE}
 dataLog <- dataLog %>% mutate(classif = case_when(Value < tensiones["limit087"] ~ "TN087",
                                                   Value < tensiones["limit091"] ~ "TN087_091",
                                                   Value < tensiones["limit093"] ~ "TN091_093",
