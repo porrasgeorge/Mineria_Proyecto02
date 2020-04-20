@@ -316,6 +316,7 @@ test_data <- dataLog[!mascara,]
 
 ```
 
+#Creacion del modelo de random forest
 ```{r eval = FALSE}
 modelo <- randomForest(formula = Value ~ year + month + hour, data = training_data)
 
