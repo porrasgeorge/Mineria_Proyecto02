@@ -307,8 +307,7 @@ dataLog_table$Perc <- round(100*(dataLog_table$Freq/sum_total), 2)
 
 
 
-## Particionamiento de los datos
-
+## Particionamiento de los datos para entrenamiento y testeo
 ```{r eval = FALSE}
 set.seed(4)
 mascara <- sample.split(dataLog$Quantity, SplitRatio = 7/10)
