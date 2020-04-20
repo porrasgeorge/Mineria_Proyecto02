@@ -322,6 +322,9 @@ modelo <- randomForest(formula = Value ~ year + month + hour, data = training_da
 
 ```
 
-
+# Prediccion del modelo
+```{r}
+pred<-predict(modelo,test_data[-training_data,], type = "class" )
+```
 
 
