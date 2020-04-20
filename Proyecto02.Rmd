@@ -42,14 +42,14 @@ final_date <- with_tz(end_dateCR, tzone = "UTC")
 nom_voltage <- 24900
 cut_voltage <- 25100
 tensiones <- c("Nom" = nom_voltage, 
-               "limit087" = 0.87*tn,
-               "limit091" = 0.91*tn,
-               "limit093" = 0.93*tn,
-               "limit095" = 0.95*tn,
-               "limit105" = 1.05*tn,
-               "limit107" = 1.07*tn,
-               "limit109" = 1.09*tn,
-               "limit113" = 1.13*tn)
+               "limit087" = 0.87*nom_voltage,
+               "limit091" = 0.91*nom_voltage,
+               "limit093" = 0.93*nom_voltage,
+               "limit095" = 0.95*nom_voltage,
+               "limit105" = 1.05*nom_voltage,
+               "limit107" = 1.07*nom_voltage,
+               "limit109" = 1.09*nom_voltage,
+               "limit113" = 1.13*nom_voltage)
 
 ```
 
@@ -125,7 +125,11 @@ dataLog$TimestampUTC <- NULL
 dataLog$ID <- NULL
 dataLog$year <- year(dataLog$TimestampCR)
 dataLog$month <- month(dataLog$TimestampCR)
+dataLog$day <- day(dataLog$TimestampCR)
 dataLog$hour <- hour(dataLog$TimestampCR)
+dataLog$wday <- wday(dataLog$TimestampCR)
+dataLog$wdayName <- weekdays(dataLog$TimestampCR)
+dataLog$hour2 <- hour(dataLog$TimestampCR)+ (minute(dataLog$TimestampCR)/60)
 
 ```
 
@@ -256,6 +260,34 @@ unbal_calc  <- function(va, vb, vc){
 dataLog2 <- dataLog2 %>% mutate (unbalance = unbal_calc(Vab, Vbc, Vca))
 
 ```
+
+
+
+
+```{r}
+a <- dataLog2 %>% group_by(hour2) %>% summarise(v = mean(unbalance))
+ggplot(a, aes(hour2, v)) + geom_point() + geom_line(col = "orange")
+
+a <- dataLog2 %>% group_by(wdayName, hour2) %>% summarise(v = mean(unbalance))
+ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(wdayName)))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
