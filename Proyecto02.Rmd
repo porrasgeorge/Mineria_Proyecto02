@@ -39,8 +39,9 @@ final_date <- with_tz(end_dateCR, tzone = "UTC")
 #### Valores Nominales (vectores)
 
 ```{r}
-tn <- 24900
-tensiones <- c("Nom" = tn, 
+nom_voltage <- 24900
+cut_voltage <- 25100
+tensiones <- c("Nom" = nom_voltage, 
                "limit087" = 0.87*tn,
                "limit091" = 0.91*tn,
                "limit093" = 0.93*tn,
@@ -79,9 +80,9 @@ odbcCloseAll()
 #### Guardar archivos con las tablas
 
 ```{r eval = FALSE}
-write_feather(dataLog, "featherFiles/dataLog.feather")
-write_feather(quantity, "featherFiles/quantity.feather")
-write_feather(sources, "featherFiles/sources.feather")
+#write_feather(dataLog, "featherFiles/dataLog.feather")
+#write_feather(quantity, "featherFiles/quantity.feather")
+#write_feather(sources, "featherFiles/sources.feather")
 ```
 
 #### Leer Archivos de las tablas
@@ -228,16 +229,32 @@ p
 
 ### Aqui inician la modificaciones reales de los datos
 
-#### Pivot para generar columnas para las 3 variables de tension
+#### Pivot para generar columnas para las 3 variables de tension y eliminar los outliers
 
 ```{r}
+
 dataLog2 <- tidyr::spread(dataLog, Quantity, Value)
+dataLog2 <- dataLog2 %>% filter(Vab > cut_voltage, Vbc>cut_voltage, Vca > cut_voltage)
 ```
 
 #### Muesta de la tabla
 
 ```{r}
 head(dataLog2, 15)
+```
+
+
+### Cálculo del procentaje de desbalance
+
+```{r}
+unbal_calc  <- function(va, vb, vc){
+  maximo =  pmax(abs(va-vb), abs(vb-vc), abs(vc-va))
+  promedio = (va + vb + vc)/3
+  return(100*maximo/promedio)
+} 
+
+dataLog2 <- dataLog2 %>% mutate (unbalance = unbal_calc(Vab, Vbc, Vca))
+
 ```
 
 
