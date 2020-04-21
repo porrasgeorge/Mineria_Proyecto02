@@ -288,11 +288,64 @@ ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(year)), size=2)
 ## Particionamiento de los datos
 
 ```{r eval = FALSE}
-dataLog2 <- dataLog2 %>% filter (year > 2019) %>% select(wday, hour, unbalance)
+dL <- dataLog2 %>% filter (year > 2018) %>% 
+  select(wdayName, hour, unbalance) %>% 
+  group_by(wdayName, hour) %>%
+  summarise(unbalance = mean(unbalance)) %>%
+  ungroup() %>%
+  mutate(wdayName = as.factor(wdayName), hour = as.factor(hour))
+
 set.seed(4)
-mascara <- sample.split(dataLog2$unbalance, SplitRatio = 7/10)
-training_data <- dataLog2[mascara,]
-test_data <- dataLog2[!mascara,]
+mascara <- sample.split(dL$unbalance, SplitRatio = 7/10)
+training_data <- dL[mascara,]
+test_data <- dL[!mascara,]
+
+glimpse(dL)
+
+```
+
+```{r}
+modelo <- randomForest(formula = unbalance ~ ., data = training_data)
+
+```
+
+
+```{r}
+pred <- predict(modelo, newdata = test_data)
+test_data$pred <- pred
+
+glimpse(test_data)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Particionamiento de los datos
+
+```{r eval = FALSE}
+dL <- dataLog2 %>% filter (year > 2018) %>% 
+  select(year, wdayName, hour, unbalance) %>% 
+  group_by(year, wdayName, hour) %>%
+  summarise(unbalance = mean(unbalance)) %>%
+  ungroup() %>%
+  mutate(wdayName = as.factor(wdayName), hour = as.factor(hour))
+
+set.seed(4)
+mascara <- sample.split(dL$unbalance, SplitRatio = 7/10)
+training_data <- dL[mascara,]
+test_data <- dL[!mascara,]
+
+glimpse(dL)
 
 ```
 
