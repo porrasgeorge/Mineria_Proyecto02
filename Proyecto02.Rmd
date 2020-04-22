@@ -309,8 +309,10 @@ ggplot(a, aes(hour, v)) + geom_point(aes(colour = minute)) + geom_line(col = "or
 
 ```{r}
 
-dL <- dataLog2 %>% filter (year > 2017) %>% 
+dL <- dataLog2 %>% filter (year %in% c(2017, 2018, 2019))  %>% 
   select(-unbalance)
+
+  ##  select(-unbalance, -day, -minute)
 
 set.seed(4)
 mascara <- sample.split(dL$unbal_cat, SplitRatio = 7/10)
@@ -321,29 +323,95 @@ table(dL$unbal_cat)
 
 ```
 
+### para obtener la importancia de la variables
+
 ```{r  eval = FALSE}
 start_time <- Sys.time()
 
-# modelo <- randomForest(formula = unbal_cat ~ .,
-#                        data = training_data,
-#                        mtry=2, ntree=1000,
-#                        keep.forest=TRUE,
-#                        importance=TRUE,
-#                        test=test_data)
-#saveRDS(modelo, file = "models/modelo2018.modelo")
-#saveRDS(modelo, file = "models/modelo2017.modelo")
-
-
+modelo <- randomForest(formula = unbal_cat ~ .,
+                       data = training_data, ntree=100,
+                       importance=TRUE,
+                       test=test_data)
 end_time <- Sys.time()
 end_time - start_time
 
+## Guardar el modelo en disco
+saveRDS(modelo, file = "models/modelo2017_2019(importanceVariables).modelo")
+
 ```
+
+#### Grafica de importancia
+
+```{r}
+
+varImpPlot(modelo)
+
+```
+
+
+
+
+## Particionamiento de los datos
+
+```{r}
+
+dL <- dataLog2 %>% filter (year == 2019) %>% 
+  select(-unbalance, -minute, -year)
+
+  ##  select(-unbalance, -day, -minute)
+
+set.seed(4)
+mascara <- sample.split(dL$unbal_cat, SplitRatio = 7/10)
+training_data <- dL[mascara,]
+test_data <- dL[!mascara,]
+
+table(dL$unbal_cat)
+
+```
+
+
+
+
+
+```{r  eval = FALSE}
+start_time <- Sys.time()
+
+modelo <- randomForest(formula = unbal_cat ~ .,
+                       data = training_data,
+                       mtry=2, ntree=100,
+                       keep.forest=TRUE,
+                       importance=TRUE,
+                       test=test_data)
+end_time <- Sys.time()
+end_time - start_time
+
+## Guardar el modelo en disco
+saveRDS(modelo, file = "models/modelo2019_varRemoved1.modelo")
+
+```
+
+
+#### Grafica de importancia
+
+```{r}
+
+varImpPlot(modelo)
+
+```
+
+
+
+
+
+
+
+
 
 #### predicciones
 
 ```{r}
 #modelo = readRDS(file = "models/modelo2018.modelo")
-modelo = readRDS(file = "models/modelo2017.modelo")
+#modelo = readRDS(file = "models/modelo2017.modelo")
 
 pred <- predict(modelo, newdata = test_data)
 pred_ROCR <-ml_test(pred, test_data$unbal_cat, output.as.table = TRUE)
