@@ -2,7 +2,9 @@
 title: "Proyecto 02"
 author: "Jorge Porras & Alex Cruz"
 date: "12/4/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 # ¿Es posible predecir desbalances de tension?
@@ -88,6 +90,7 @@ odbcCloseAll()
 ```
 
 #### Leer Archivos de las tablas
+
 ```{r}
 #rm(dataLog, quantity, sources)
 dataLog <- read_feather("featherFiles/dataLog.feather")
@@ -116,9 +119,8 @@ glimpse(quantity)
 glimpse(sources)
 ```
 
-
-
 #### Transformacion de datos para analisis previo
+
 ```{r}
 ## Transformacion de columnas
 dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
@@ -135,8 +137,8 @@ dataLog$hour2 <- hour(dataLog$TimestampCR)+ (minute(dataLog$TimestampCR)/60)
 
 ```
 
-
 #### Union de tablas, borrado de columnas no importantes y Categorizacion de valores
+
 ```{r}
 dataLog <- dataLog %>% left_join(quantity, by = c('QuantityID' = "ID")) %>%
   left_join(sources, by = c('SourceID' = "ID"))
@@ -149,6 +151,7 @@ dataLog$QuantityID <- NULL
 dataLog$DisplayName <- NULL
 #rm(quantity, sources)
 ```
+
 #### Contenido de la tabla Datalog
 
 ```{r}
@@ -165,13 +168,11 @@ initial_rows <- nrow(dataLog)
 initial_rows
 ```
 
-
 #### Boxplot del comportamiento de la tension (horizontal)
 
 ```{r}
 boxplot(dataLog$Value, xlab= "Voltaje", col="Orange", border = "brown", horizontal = T, main = "Voltaje Promedio") 
 ```
-
 
 #### Histograma inicial
 
@@ -179,7 +180,6 @@ boxplot(dataLog$Value, xlab= "Voltaje", col="Orange", border = "brown", horizont
 hist(dataLog$Value, col="Orange", border = "brown", xlab = "Valor", ylab = "Frecuencia", main = "Histograma de Tension")
 
 ```
-
 
 #### Variable temporal solo para análisis (originalmente se tenian 15825 rows)
 
@@ -203,6 +203,7 @@ hist(dl_temp$Value, col="Orange", border = "brown", xlab = "Tension", ylab = "Fr
 ```
 
 #### Grafico de densidad
+
 ```{r}
 d <- density(dl_temp$Value)
 plot(d, main = "Densidad")
@@ -220,7 +221,6 @@ bp
 
 ```
 
-
 #### Grafico de densidad para cada variable
 
 ```{r}
@@ -231,7 +231,6 @@ p <- ggplot(dl_temp, aes(x=Value, fill = Quantity)) +
   geom_vline(data=lineas, aes(xintercept=v, color=Quantity), size = 2)
 p
 ```
-
 
 ### Aqui inician la modificaciones reales de los datos
 
@@ -249,7 +248,6 @@ dataLog2 <- dataLog2 %>% filter(Vab > cut_voltage, Vbc>cut_voltage, Vca > cut_vo
 head(dataLog2, 15)
 ```
 
-
 ### Cálculo del procentaje de desbalance
 
 ```{r}
@@ -262,7 +260,6 @@ unbal_calc  <- function(va, vb, vc){
 dataLog2 <- dataLog2 %>% mutate (unbalance = unbal_calc(Vab, Vbc, Vca))
 
 ```
-
 
 #### Desbalance promedio 
 
@@ -279,11 +276,6 @@ a <- dataLog2 %>% group_by(year, hour2) %>% summarise(v = mean(unbalance))
 ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(year)), size=2)
 
 ```
-
-
-
-
-
 
 ## Particionamiento de los datos
 
@@ -318,18 +310,6 @@ glimpse(test_data)
 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
 ## Particionamiento de los datos
 
 ```{r eval = FALSE}
@@ -363,7 +343,9 @@ glimpse(test_data)
 
 ```
 
+
 ##Diamonds graphics
+
 ```{r echo=F, message=F}
 library(highcharter)
 data(diamonds, mpg, package = "ggplot2")
