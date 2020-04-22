@@ -9,6 +9,11 @@ output:
 
 # ¿Es posible predecir desbalances de tension?
 
+## ¿Por que no usar series de tiempo?
+#### huecos en las mediciones (faltantes)
+
+
+
 #### Carga de librerias
 
 ```{r}
@@ -23,7 +28,7 @@ library(caTools)
 library(randomForest)
 library(caret)
 library(e1071)
-#library(xlsx)
+library(mltest)
 ```
 
 #### Rango de fechas (lubridate)
@@ -134,7 +139,7 @@ dataLog$hour <- hour(dataLog$TimestampCR)
 dataLog$minute <- minute(dataLog$TimestampCR)
 dataLog$wday <- wday(dataLog$TimestampCR)
 dataLog$wdayName <- weekdays(dataLog$TimestampCR)
-dataLog$monthName <- factor(month.abb[dataLog$month])
+dataLog$monthName <- month.abb[dataLog$month]
 
 dataLog$hour2 <- hour(dataLog$TimestampCR)+ (minute(dataLog$TimestampCR)/60)
 
@@ -232,31 +237,25 @@ p
 
 ### Aqui inician la modificaciones reales de los datos
 
-#### Pivot para generar columnas para las 3 variables de tension y eliminar los outliers
+#### Pivot para generar columnas para las 3 variables de tension y eliminar los outliers, Cálculo del procentaje de desbalance y categoria del mismo
 
 ```{r}
+## pivot respecto de Quantity
 dataLog2 <- tidyr::spread(dataLog, Quantity, Value)
+
+## filtro de valores menores al corte
 dataLog2 <- dataLog2 %>% filter(Vab > cut_voltage, Vbc>cut_voltage, Vca > cut_voltage)
-```
 
-#### Muesta de la tabla
-
-```{r}
-head(dataLog2, 15)
-```
-
-### Cálculo del procentaje de desbalance
-
-```{r}
+## definicion de metodos
+## Calculo de desbalance maximo
 unbal_calc  <- function(va, vb, vc){
   maximo =  pmax(abs(va-vb), abs(vb-vc), abs(vc-va))
   promedio = (va + vb + vc)/3
   unb <- 100*maximo/promedio
-
-
   return(unb)
 }
 
+## categoria del desbalance
 unbal_categ  <- function(unb){
   unb_class <- case_when(unb < clasif["Low"] ~ "Low",
                       unb < clasif["Low_Mid"] ~ "Low_Mid",
@@ -268,12 +267,27 @@ unbal_categ  <- function(unb){
   return(unb_class)
 } 
 
+## nuevas columnas
 dataLog2 <- dataLog2 %>% 
   mutate (unbalance = unbal_calc(Vab, Vbc, Vca)) %>% 
   mutate (unbal_cat = factor(unbal_categ(unbalance), levels = c("Low","Low_Mid","Mid","Mid_High","High","Very_High"))) %>%
   select (year, monthName, day, hour, minute, wdayName, unbalance, unbal_cat)
 
+## converson de variables
+dataLog2$year <- as.integer(dataLog2$year)
+dataLog2$monthName <- factor(dataLog2$monthName, levels = month.abb[1:12])
+dataLog2$day <- factor(dataLog2$day, levels = c(1:31))
+dataLog2$hour <- factor(dataLog2$hour, levels = c(0:23))
+dataLog2$minute <- factor(dataLog2$minute, levels = c(0, 15, 30, 45))
+dataLog2$wdayName <- factor(dataLog2$wdayName)
+
+## tabla resultado
 glimpse(dataLog2)
+```
+
+#### tabla de conteo de elementos en cada categoria
+
+```{r}
 table(dataLog2$unbal_cat)
 
 ```
@@ -281,56 +295,49 @@ table(dataLog2$unbal_cat)
 
 
 
-
-
-
-
-
-
 #### Desbalance promedio 
 
 ```{r}
-a <- dataLog2 %>% group_by(hour2) %>% summarise(v = mean(unbalance))
-ggplot(a, aes(hour2, v)) + geom_point() + geom_line(col = "orange")
+a <- dataLog2 %>% group_by(hour, minute) %>% summarise(v = mean(unbalance))
+ggplot(a, aes(hour, v)) + geom_point(aes(colour = minute)) + geom_line(col = "orange")
 
 ```
 
-#### Desbalance a travez de los años
 
-```{r}
-a <- dataLog2 %>% group_by(year, hour2) %>% summarise(v = mean(unbalance))
-ggplot(a, aes(hour2, v)) + geom_line(aes(colour = factor(year)), size=2)
-
-```
 
 ## Particionamiento de los datos
 
 ```{r eval = FALSE}
-dL <- dataLog2 %>% filter (year > 2018) %>% 
-  select(wdayName, hour, unbalance) %>% 
-  group_by(wdayName, hour) %>%
-  summarise(unbalance = mean(unbalance)) %>%
-  ungroup() %>%
-  mutate(wdayName = as.factor(wdayName), hour = as.factor(hour))
+dL <- dataLog2 %>% filter (year > 2019) %>% 
+  select(-unbalance)
 
 set.seed(4)
-mascara <- sample.split(dL$unbalance, SplitRatio = 7/10)
+mascara <- sample.split(dL$unbal_cat, SplitRatio = 7/10)
 training_data <- dL[mascara,]
 test_data <- dL[!mascara,]
 
-glimpse(dL)
+table(dL$unbal_cat)
 
 ```
 
 ```{r}
-modelo <- randomForest(formula = unbalance ~ ., data = training_data)
+modelo <- randomForest(formula = unbal_cat ~ .,
+                       data = training_data, 
+                       mtry=2, ntree=1000,
+                       keep.forest=TRUE, 
+                       importance=TRUE,
+                       test=test_data)
 
 ```
 
 
 ```{r}
 pred <- predict(modelo, newdata = test_data)
-test_data$pred <- pred
+
+pred_ROCR <-ml_test(pred, test_data$unbal_cat, output.as.table = TRUE)
+
+
+
 
 glimpse(test_data)
 
@@ -339,51 +346,10 @@ glimpse(test_data)
 #### Evaluar el modelo
 
 ```{r}
-confusionMatrix(test_data$unbalance, test_data$pred)
+confusionMatrix(test_data$unbal_cat, pred)
 ```
 
 
-
-
-
-
-
-
-
-
-
-## Particionamiento de los datos
-
-```{r eval = FALSE}
-dL <- dataLog2 %>% filter (year > 2018) %>% 
-  select(year, wdayName, hour, unbalance) %>% 
-  group_by(year, wdayName, hour) %>%
-  summarise(unbalance = mean(unbalance)) %>%
-  ungroup() %>%
-  mutate(wdayName = as.factor(wdayName), hour = as.factor(hour))
-
-set.seed(4)
-mascara <- sample.split(dL$unbalance, SplitRatio = 7/10)
-training_data <- dL[mascara,]
-test_data <- dL[!mascara,]
-
-glimpse(dL)
-
-```
-
-```{r}
-modelo <- randomForest(formula = unbalance ~ ., data = training_data)
-
-```
-
-
-```{r}
-pred <- predict(modelo, newdata = test_data)
-test_data$pred <- pred
-
-glimpse(test_data)
-
-```
 
 
 #### F-Fold cross validation (evaluar con pequeños datasets)
