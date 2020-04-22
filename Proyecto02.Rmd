@@ -330,22 +330,20 @@ start_time <- Sys.time()
 #                        keep.forest=TRUE,
 #                        importance=TRUE,
 #                        test=test_data)
-#saveRDS(modelo, file = "modelo2018.modelo")
-#saveRDS(modelo, file = "modelo2017.modelo")
+#saveRDS(modelo, file = "models/modelo2018.modelo")
+#saveRDS(modelo, file = "models/modelo2017.modelo")
 
 
 end_time <- Sys.time()
 end_time - start_time
-
-# saveRDS(modelo, file = "modelo2017.modelo")
 
 ```
 
 #### predicciones
 
 ```{r}
-#modelo = readRDS(file = "modelo2018.modelo")
-modelo = readRDS(file = "modelo2017.modelo")
+#modelo = readRDS(file = "models/modelo2018.modelo")
+modelo = readRDS(file = "models/modelo2017.modelo")
 
 pred <- predict(modelo, newdata = test_data)
 pred_ROCR <-ml_test(pred, test_data$unbal_cat, output.as.table = TRUE)
