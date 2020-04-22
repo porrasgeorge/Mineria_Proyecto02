@@ -307,8 +307,9 @@ ggplot(a, aes(hour, v)) + geom_point(aes(colour = minute)) + geom_line(col = "or
 
 ## Particionamiento de los datos
 
-```{r eval = FALSE}
-dL <- dataLog2 %>% filter (year > 2019) %>% 
+```{r}
+
+dL <- dataLog2 %>% filter (year > 2017) %>% 
   select(-unbalance)
 
 set.seed(4)
@@ -320,25 +321,34 @@ table(dL$unbal_cat)
 
 ```
 
-```{r}
-modelo <- randomForest(formula = unbal_cat ~ .,
-                       data = training_data, 
-                       mtry=2, ntree=1000,
-                       keep.forest=TRUE, 
-                       importance=TRUE,
-                       test=test_data)
+```{r  eval = FALSE}
+start_time <- Sys.time()
+
+# modelo <- randomForest(formula = unbal_cat ~ .,
+#                        data = training_data,
+#                        mtry=2, ntree=1000,
+#                        keep.forest=TRUE,
+#                        importance=TRUE,
+#                        test=test_data)
+#saveRDS(modelo, file = "modelo2018.modelo")
+#saveRDS(modelo, file = "modelo2017.modelo")
+
+
+end_time <- Sys.time()
+end_time - start_time
+
+# saveRDS(modelo, file = "modelo2017.modelo")
 
 ```
 
+#### predicciones
 
 ```{r}
+#modelo = readRDS(file = "modelo2018.modelo")
+modelo = readRDS(file = "modelo2017.modelo")
+
 pred <- predict(modelo, newdata = test_data)
-
 pred_ROCR <-ml_test(pred, test_data$unbal_cat, output.as.table = TRUE)
-
-
-
-
 glimpse(test_data)
 
 ```
@@ -349,27 +359,6 @@ glimpse(test_data)
 confusionMatrix(test_data$unbal_cat, pred)
 ```
 
-
-
-
-#### F-Fold cross validation (evaluar con pequeños datasets)
-
-
-
-
-
-
-##Diamonds graphics
-
-```{r echo=F, message=F}
-library(highcharter)
-data(diamonds, mpg, package = "ggplot2")
-
-hchart(mpg, "scatter", hcaes(x = displ, y = hwy, group = class))
-hc_title(text="Some text here")
-hc_add_theme(hc_theme_economist())
-
-```
 
 
 
