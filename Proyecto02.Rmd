@@ -29,18 +29,19 @@ library(randomForest)
 library(caret)
 library(e1071)
 library(mltest)
+library(pROC)
 ```
 
 #### Rango de fechas (lubridate)
 
-```{r}
+```{r  eval = FALSE}
 final_dateCR <- floor_date(now(), "week") + days(1) ## primer lunes hacia atras
 initial_dateCR <- final_dateCR - years(3) ## 3 años hacia atras 
 ```
 
 #### Fecha-hora a UTC (lubridate) (DB está en UTC)
 
-```{r}
+```{r  eval = FALSE}
 initial_date <- with_tz(initial_dateCR, tzone = "UTC") 
 final_date <- with_tz(final_dateCR, tzone = "UTC") 
 ```
@@ -304,12 +305,11 @@ ggplot(a, aes(hour, v)) + geom_point(aes(colour = minute)) + geom_line(col = "or
 ```
 
 
-
 ## Particionamiento de los datos
 
 ```{r}
 
-dL <- dataLog2 %>% filter (year %in% c(2017, 2018, 2019))  %>% 
+dL <- dataLog2 %>% filter (year %in% c(2019))  %>% 
   select(-unbalance)
 
   ##  select(-unbalance, -day, -minute)
@@ -323,7 +323,10 @@ table(dL$unbal_cat)
 
 ```
 
+
 ### para obtener la importancia de la variables
+
+#### Modelo 1
 
 ```{r  eval = FALSE}
 start_time <- Sys.time()
@@ -336,47 +339,88 @@ end_time <- Sys.time()
 end_time - start_time
 
 ## Guardar el modelo en disco
-saveRDS(modelo, file = "models/modelo2017_2019(importanceVariables).modelo")
+saveRDS(modelo, file = "models/modelo2019.modelo")
 
 ```
 
 #### Grafica de importancia
 
 ```{r}
-
+modelo <- readRDS(file = "models/modelo2019.modelo")
 varImpPlot(modelo)
 
 ```
 
-
-
-
-## Particionamiento de los datos
+#### Calculo del area bajo la curva
 
 ```{r}
+pred <- predict(modelo, newdata = test_data, type = "prob")
+pred_f <- predict(modelo, newdata = test_data)
+roc.multi <- multiclass.roc(test_data$unbal_cat, pred)
 
-dL <- dataLog2 %>% filter (year %in% c(2017, 2018, 2019))  %>% 
-  select(-unbalance, -minute)
-  ##  select(-unbalance, -day, -minute)
+modelo1_auc <- auc(roc.multi)
+modelo1_auc 
 
-set.seed(4)
-mascara <- sample.split(dL$unbal_cat, SplitRatio = 7/10)
-training_data <- dL[mascara,]
-test_data <- dL[!mascara,]
+cm1 <- confusionMatrix(test_data$unbal_cat, pred_f)
+cm1
+```
 
-table(dL$unbal_cat)
+##################################################################################################
 
+### Modelo 2 
+#### Quitando la variablde del modelo
+
+```{r  eval = FALSE}
+start_time <- Sys.time()
+
+modelo <- randomForest(formula = unbal_cat ~ . - year - minute,
+                       data = training_data, ntree=100,
+                       importance=TRUE,
+                       test=test_data)
+end_time <- Sys.time()
+end_time - start_time
+
+## Guardar el modelo en disco
+saveRDS(modelo, file = "models/modelo2019_2.modelo")
+
+```
+
+#### Grafica de importancia
+
+```{r}
+modelo <- readRDS(file = "models/modelo2019_2.modelo")
+varImpPlot(modelo)
+
+```
+
+#### Calculo del area bajo la curva
+
+```{r}
+pred <- predict(modelo, newdata = test_data, type = "prob")
+pred_f <- predict(modelo, newdata = test_data)
+roc.multi <- multiclass.roc(test_data$unbal_cat, pred)
+
+modelo2_auc <- auc(roc.multi)
+modelo2_auc
+
+cm2 <- confusionMatrix(test_data$unbal_cat, pred_f)
+cm2 
 ```
 
 
 
+
+##################################################################################################
+
+### Modelo 3 
 
 
 ```{r  eval = FALSE}
 start_time <- Sys.time()
 
-modelo <- randomForest(formula = unbal_cat ~ .,
+modelo <- randomForest(formula = unbal_cat ~ . - year - minute,
                        data = training_data,
+                       ntree=500,
                        keep.forest=TRUE,
                        importance=TRUE,
                        test=test_data)
@@ -384,7 +428,7 @@ end_time <- Sys.time()
 end_time - start_time
 
 ## Guardar el modelo en disco
-##saveRDS(modelo, file = "models/modelo2017_2019_minus_min.modelo")
+saveRDS(modelo, file = "models/modelo2019_3.modelo")
 
 ```
 
@@ -392,36 +436,49 @@ end_time - start_time
 #### Grafica de importancia
 
 ```{r}
-
+modelo <- readRDS(file = "models/modelo2019_3.modelo")
 varImpPlot(modelo)
 
 ```
 
-
-
-
-
-
-
-
-
-#### predicciones
+#### Calculo del area bajo la curva
 
 ```{r}
-#modelo = readRDS(file = "models/modelo2018.modelo")
-#modelo = readRDS(file = "models/modelo2017.modelo")
+pred <- predict(modelo, newdata = test_data, type = "prob")
+pred_f <- predict(modelo, newdata = test_data)
+roc.multi <- multiclass.roc(test_data$unbal_cat, pred)
 
-pred <- predict(modelo, newdata = test_data)
-pred_ROCR <-ml_test(pred, test_data$unbal_cat, output.as.table = TRUE)
-glimpse(test_data)
+modelo3_auc <- auc(roc.multi)
+modelo3_auc
+
+cm3 <- confusionMatrix(test_data$unbal_cat, pred_f)
+cm3
+```
+
+
+### Comparacion de las AUC
+
+```{r}
+print(paste("Area bajo la curva modelo 1: ", modelo1_auc))
+print(paste("Area bajo la curva modelo 2: ", modelo2_auc))
+print(paste("Area bajo la curva modelo 3: ", modelo3_auc))
 
 ```
 
-#### Evaluar el modelo
+
+#### Comparacionde las matrices de confucion
 
 ```{r}
-confusionMatrix(test_data$unbal_cat, pred)
+cm1
 ```
+```{r}
+cm2
+```
+
+```{r}
+cm3
+```
+
 
 
 
