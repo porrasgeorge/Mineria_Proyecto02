@@ -3,8 +3,8 @@ title: "Proyecto 02"
 author: "Jorge Porras & Alex Cruz"
 date: "12/4/2020"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 # ¿Es posible predecir desbalances de tension?
@@ -362,7 +362,7 @@ modelo1_auc <- auc(roc.multi)
 modelo1_auc 
 
 cm1 <- confusionMatrix(test_data$unbal_cat, pred_f)
-cm1
+cm1$table
 ```
 
 ##################################################################################################
@@ -404,7 +404,7 @@ modelo2_auc <- auc(roc.multi)
 modelo2_auc
 
 cm2 <- confusionMatrix(test_data$unbal_cat, pred_f)
-cm2 
+cm2$table
 ```
 
 
@@ -452,7 +452,8 @@ modelo3_auc <- auc(roc.multi)
 modelo3_auc
 
 cm3 <- confusionMatrix(test_data$unbal_cat, pred_f)
-cm3
+cm3$table
+
 ```
 
 
@@ -469,14 +470,35 @@ print(paste("Area bajo la curva modelo 3: ", modelo3_auc))
 #### Comparacionde las matrices de confucion
 
 ```{r}
-cm1
+aciertos <- 0
+for (i in 1:nrow(cm1$table)){
+  aciertos <- aciertos + cm1$table[i,i]
+}
+
+print(paste("Se acertaron:", aciertos, "predicciones"))
+
+cm1$table
 ```
 ```{r}
-cm2
+aciertos <- 0
+for (i in 1:nrow(cm2$table)){
+  aciertos <- aciertos + cm2$table[i,i]
+}
+
+print(paste("Se acertaron:", aciertos, "predicciones"))
+
+cm2$table
 ```
 
 ```{r}
-cm3
+aciertos <- 0
+for (i in 1:nrow(cm3$table)){
+  aciertos <- aciertos + cm3$table[i,i]
+}
+
+print(paste("Se acertaron:", aciertos, "predicciones"))
+
+cm3$table
 ```
 
 
