@@ -355,9 +355,8 @@ varImpPlot(modelo)
 
 ```{r}
 
-dL <- dataLog2 %>% filter (year == 2019) %>% 
-  select(-unbalance, -minute, -year)
-
+dL <- dataLog2 %>% filter (year %in% c(2017, 2018, 2019))  %>% 
+  select(-unbalance, -minute)
   ##  select(-unbalance, -day, -minute)
 
 set.seed(4)
@@ -378,7 +377,6 @@ start_time <- Sys.time()
 
 modelo <- randomForest(formula = unbal_cat ~ .,
                        data = training_data,
-                       mtry=2, ntree=100,
                        keep.forest=TRUE,
                        importance=TRUE,
                        test=test_data)
@@ -386,7 +384,7 @@ end_time <- Sys.time()
 end_time - start_time
 
 ## Guardar el modelo en disco
-saveRDS(modelo, file = "models/modelo2019_varRemoved1.modelo")
+##saveRDS(modelo, file = "models/modelo2017_2019_minus_min.modelo")
 
 ```
 
