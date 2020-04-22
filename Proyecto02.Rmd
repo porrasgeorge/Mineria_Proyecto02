@@ -14,28 +14,30 @@ output:
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
-library(RODBC)
+#library(RODBC)
 library(lubridate)
 library(feather)
 library(ggplot2)
 library(tidyr)
 library(caTools)
 library(randomForest)
+library(caret)
+library(e1071)
 #library(xlsx)
 ```
 
 #### Rango de fechas (lubridate)
 
 ```{r}
-end_dateCR <- floor_date(now(), "week")  ## primer domingo hacia atras
-start_dateCR <- end_dateCR - years(3)+ days(1) ## 8 semanas atras (lunes)
+final_dateCR <- floor_date(now(), "week") + days(1) ## primer lunes hacia atras
+initial_dateCR <- final_dateCR - years(3) ## 3 años hacia atras 
 ```
 
 #### Fecha-hora a UTC (lubridate) (DB está en UTC)
 
 ```{r}
-initial_date <- with_tz(start_dateCR, tzone = "UTC") 
-final_date <- with_tz(end_dateCR, tzone = "UTC") 
+initial_date <- with_tz(initial_dateCR, tzone = "UTC") 
+final_date <- with_tz(final_dateCR, tzone = "UTC") 
 ```
 
 #### Valores Nominales (vectores)
@@ -43,15 +45,11 @@ final_date <- with_tz(end_dateCR, tzone = "UTC")
 ```{r}
 nom_voltage <- 35000
 cut_voltage <- 34000
-tensiones <- c("Nom" = nom_voltage, 
-               "limit087" = 0.87*nom_voltage,
-               "limit091" = 0.91*nom_voltage,
-               "limit093" = 0.93*nom_voltage,
-               "limit095" = 0.95*nom_voltage,
-               "limit105" = 1.05*nom_voltage,
-               "limit107" = 1.07*nom_voltage,
-               "limit109" = 1.09*nom_voltage,
-               "limit113" = 1.13*nom_voltage)
+clasif <- c("Low" = 0.3,
+                     "Low_Mid" = 0.5,
+                     "Mid" = 0.7,
+                     "Mid_High" = 0.9,
+                     "High" = 1.1)
 
 ```
 
@@ -62,7 +60,7 @@ channel <- odbcConnect("SQL_ION", uid="sa", pwd="Con3$adm.")
 #sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopeguanacaste.%'")
 sources <- sqlQuery(channel , "select top 100 ID, Name, DisplayName from Source where Name like 'Coopealfaroruiz.%'")
 #sources$Name <- gsub("Coopeguanacaste.", '', sources$Name)
-sources$Name <- gsub("Coopealfaroruiz.", '', sources$Name)
+sources$Name <- gsub("Coopealfaroruiz.", '', sources$Name)l
 sources <- sources %>% filter(ID %in% c(9))
 
 quantity <- sqlQuery(channel , "select top 1500000 ID, Name from Quantity where Name like 'Voltage%'")
@@ -93,9 +91,9 @@ odbcCloseAll()
 
 ```{r}
 #rm(dataLog, quantity, sources)
-dataLog <- read_feather("featherFiles/dataLog.feather")
+dataLog  <- read_feather("featherFiles/dataLog.feather")
 quantity <- read_feather("featherFiles/quantity.feather")
-sources <- read_feather("featherFiles/sources.feather")
+sources  <- read_feather("featherFiles/sources.feather")
 ```
 
 
@@ -121,6 +119,8 @@ glimpse(sources)
 
 #### Transformacion de datos para analisis previo
 
+#### Union de tablas, borrado de columnas no importantes y Categorizacion de valores
+
 ```{r}
 ## Transformacion de columnas
 dataLog$TimestampUTC <- as_datetime(dataLog$TimestampUTC)
@@ -131,15 +131,13 @@ dataLog$year <- year(dataLog$TimestampCR)
 dataLog$month <- month(dataLog$TimestampCR)
 dataLog$day <- day(dataLog$TimestampCR)
 dataLog$hour <- hour(dataLog$TimestampCR)
+dataLog$minute <- minute(dataLog$TimestampCR)
 dataLog$wday <- wday(dataLog$TimestampCR)
 dataLog$wdayName <- weekdays(dataLog$TimestampCR)
+dataLog$monthName <- factor(month.abb[dataLog$month])
+
 dataLog$hour2 <- hour(dataLog$TimestampCR)+ (minute(dataLog$TimestampCR)/60)
 
-```
-
-#### Union de tablas, borrado de columnas no importantes y Categorizacion de valores
-
-```{r}
 dataLog <- dataLog %>% left_join(quantity, by = c('QuantityID' = "ID")) %>%
   left_join(sources, by = c('SourceID' = "ID"))
 
@@ -237,7 +235,6 @@ p
 #### Pivot para generar columnas para las 3 variables de tension y eliminar los outliers
 
 ```{r}
-
 dataLog2 <- tidyr::spread(dataLog, Quantity, Value)
 dataLog2 <- dataLog2 %>% filter(Vab > cut_voltage, Vbc>cut_voltage, Vca > cut_voltage)
 ```
@@ -254,12 +251,41 @@ head(dataLog2, 15)
 unbal_calc  <- function(va, vb, vc){
   maximo =  pmax(abs(va-vb), abs(vb-vc), abs(vc-va))
   promedio = (va + vb + vc)/3
-  return(100*maximo/promedio)
+  unb <- 100*maximo/promedio
+
+
+  return(unb)
+}
+
+unbal_categ  <- function(unb){
+  unb_class <- case_when(unb < clasif["Low"] ~ "Low",
+                      unb < clasif["Low_Mid"] ~ "Low_Mid",
+                      unb < clasif["Mid"] ~ "Mid",
+                      unb < clasif["Mid_High"] ~ "Mid_High",
+                      unb < clasif["High"] ~ "High",
+                      TRUE ~ "Very_High"
+                      )
+  return(unb_class)
 } 
 
-dataLog2 <- dataLog2 %>% mutate (unbalance = unbal_calc(Vab, Vbc, Vca))
+dataLog2 <- dataLog2 %>% 
+  mutate (unbalance = unbal_calc(Vab, Vbc, Vca)) %>% 
+  mutate (unbal_cat = factor(unbal_categ(unbalance), levels = c("Low","Low_Mid","Mid","Mid_High","High","Very_High"))) %>%
+  select (year, monthName, day, hour, minute, wdayName, unbalance, unbal_cat)
+
+glimpse(dataLog2)
+table(dataLog2$unbal_cat)
 
 ```
+
+
+
+
+
+
+
+
+
 
 #### Desbalance promedio 
 
@@ -310,6 +336,22 @@ glimpse(test_data)
 
 ```
 
+#### Evaluar el modelo
+
+```{r}
+confusionMatrix(test_data$unbalance, test_data$pred)
+```
+
+
+
+
+
+
+
+
+
+
+
 ## Particionamiento de los datos
 
 ```{r eval = FALSE}
@@ -342,6 +384,13 @@ test_data$pred <- pred
 glimpse(test_data)
 
 ```
+
+
+#### F-Fold cross validation (evaluar con pequeños datasets)
+
+
+
+
 
 
 ##Diamonds graphics
